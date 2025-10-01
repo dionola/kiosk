@@ -1,0 +1,85 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model MenuItem {
+  id          String   @id @default(cuid())
+  sourceItemId String?
+  sourceCategoryId String?
+  name        String
+  description String?
+  price       Float
+  category    String
+  image       String?
+  available   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  customizations CustomizationOption[]
+  orderItems     OrderItem[]
+
+  @@index([category])
+  @@index([sourceCategoryId])
+  @@index([sourceItemId])
+}
+
+model CustomizationOption {
+  id        String   @id @default(cuid())
+  menuItemId String
+  type      String   // "size", "addon", "modification"
+  name      String
+  price     Float    @default(0)
+  createdAt DateTime @default(now())
+
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+
+  @@index([menuItemId])
+}
+
+model Order {
+  id        String   @id @default(cuid())
+  userId    String?  // Optional for guest orders
+  status    String   @default("pending") // pending, confirmed, preparing, ready, completed, cancelled
+  total     Float
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items OrderItem[]
+
+  @@index([userId])
+  @@index([status])
+}
+
+model OrderItem {
+  id           String   @id @default(cuid())
+  orderId      String
+  menuItemId   String
+  quantity     Int
+  customizations String?  // JSON string (SQLite connector doesn't support Json)
+  price        Float
+  createdAt    DateTime @default(now())
+
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id])
+
+  @@index([orderId])
+  @@index([menuItemId])
+}
+
+model Cart {
+  id        String   @id @default(cuid())
+  sessionId String   @unique
+  items     String   // JSON string (SQLite connector doesn't support Json)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sessionId])
+}
