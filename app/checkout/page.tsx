@@ -44,7 +44,10 @@ export default function CheckoutPage() {
     loadCart(session)
   }, [loadCart, router])
 
-  const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0)
+  const total = cart.reduce((sum, item) => {
+    const customTotal = item.customizations ? Object.values(item.customizations).reduce((acc, curr) => acc + curr.price, 0) : 0
+    return sum + (item.price + customTotal) * item.quantity
+  }, 0)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -94,18 +97,27 @@ export default function CheckoutPage() {
             {/* Order Summary */}
             <div>
               <h2 className="text-2xl font-semibold text-gray-800 mb-4">Order Summary</h2>
-              <div className="space-y-3 mb-6">
+              <div className="space-y-4 mb-6">
                 {cart.map((item, index) => (
-                  <div key={index} className="flex justify-between border-b pb-3">
-                    <div>
-                      <p className="font-semibold">{item.name}</p>
+                  <div key={index} className="flex gap-4 border-b pb-4">
+                    <div className="w-16 h-16 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
+                      {item.image ? (
+                        <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-2xl">🍗</div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-900">{item.name}</p>
                       <p className="text-sm text-gray-500">
-                        {item.quantity}x ₱{item.price.toFixed(0)}
+                        {item.quantity}x ₱{(item.price + (item.customizations ? Object.values(item.customizations).reduce((acc, curr) => acc + curr.price, 0) : 0)).toFixed(0)}
                       </p>
                     </div>
-                    <p className="font-semibold">
-                      ₱{(item.price * item.quantity).toFixed(0)}
-                    </p>
+                    <div className="text-right">
+                      <p className="font-semibold text-jollibee-red">
+                        ₱{((item.price + (item.customizations ? Object.values(item.customizations).reduce((acc, curr) => acc + curr.price, 0) : 0)) * item.quantity).toFixed(0)}
+                      </p>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -174,5 +186,6 @@ export default function CheckoutPage() {
     </div>
   )
 }
+
 
 

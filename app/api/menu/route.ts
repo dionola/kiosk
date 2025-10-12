@@ -4,12 +4,21 @@ import { prisma } from '@/lib/db'
 export async function GET() {
     try {
         const menuItems = await prisma.menuItem.findMany({
-            where: { available: true },
+            where: {
+                available: true,
+            },
             include: {
-                customizations: true,
+                customizations: {
+                    include: {
+                        customizationItem: true
+                    },
+                    orderBy: {
+                        sequence: 'asc'
+                    }
+                },
             },
             orderBy: {
-                category: 'asc',
+                sequence: 'asc',
             },
         })
 

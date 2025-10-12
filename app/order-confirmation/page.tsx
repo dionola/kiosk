@@ -7,13 +7,11 @@ function OrderConfirmationContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const orderId = searchParams.get('id')
-  const [order, setOrder] = useState<any>(null)
+  const [order, setOrder] = useState<{ id: string } | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (orderId) {
-      // In a real app, you'd fetch the order details
-      // For now, we'll just show a confirmation
       setOrder({ id: orderId })
       setLoading(false)
     } else {

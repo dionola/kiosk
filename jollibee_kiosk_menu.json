@@ -8,18 +8,6 @@
       "category_name": "Chickenjoy",
       "items": [
         {
-          "item_id": "chickenjoy_1pc",
-          "name": "Extra Chickenjoy Gravy",
-          "description": "Crispylicious, juicylicious fried chicken that's a joy to eat! Served with steaming rice.",
-          "base_price": 11.0,
-          "image": "https://jollibee-menu.com/wp-content/uploads/2024/12/Extra-Chickenjoy-Gravy.png",
-          "options": [
-            "chicken_type",
-            "drink",
-            "fries"
-          ]
-        },
-        {
           "item_id": "chickenjoy_1pc_palabok_burgersteak_macaroni",
           "name": "1 - pc. Chickenjoy",
           "description": "Crispylicious, juicylicious fried chicken that's a joy to eat! Served with steaming rice.",

@@ -1,20 +1,38 @@
+export interface Category {
+    id: string
+    name: string
+    image: string | null
+    sequence: number
+}
+
 export interface MenuItem {
     id: string
     name: string
     description: string | null
     price: number
-    category: string
+    categoryId: string | null
     image: string | null
     available: boolean
-    customizations?: CustomizationOption[]
+    sequence: number
+    customizations?: MenuItemCustomization[]
 }
 
-export interface CustomizationOption {
+export interface CustomizationItem {
+    id: string
+    name: string
+    description: string | null
+    price: number
+    image: string | null
+    available: boolean
+}
+
+export interface MenuItemCustomization {
     id: string
     menuItemId: string
-    type: 'size' | 'addon' | 'modification' | 'drink' | 'fries' | 'chicken_type'
-    name: string
-    price: number
+    customizationItemId: string
+    group: string
+    sequence: number
+    customizationItem: CustomizationItem
 }
 
 export interface CartItem {
@@ -22,8 +40,13 @@ export interface CartItem {
     name: string
     price: number
     quantity: number
+    image: string | null
     customizations?: {
-        [key: string]: string | number
+        [key: string]: {
+            itemId: string
+            name: string
+            price: number
+        }
     }
 }
 
@@ -41,13 +64,14 @@ export interface OrderItem {
     orderId: string
     menuItemId: string
     quantity: number
-    customizations: any
+    customizations: Record<string, unknown> | null
     price: number
 }
 
 export interface AIChatMessage {
     role: 'user' | 'assistant' | 'system'
     content: string
+    addedItems?: CartItem[]
 }
 
 export interface AIOrderIntent {
