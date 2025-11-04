@@ -7,10 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "postinstall": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
     "eval:chat": "tsx scripts/eval_chat.ts"
   },
   "dependencies": {
+    "@libsql/client": "0.15.15",
+    "@prisma/adapter-libsql": "6.18.0",
     "@prisma/client": "6.16.3",
     "next": "15.5.4",
     "openai": "6.0.1",

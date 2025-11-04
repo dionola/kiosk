@@ -1,8 +1,8 @@
-import { PrismaClient } from '@prisma/client'
 import fs from 'node:fs'
 import path from 'node:path'
+import { createPrismaClient } from '../lib/db'
 
-const prisma = new PrismaClient()
+const prisma = createPrismaClient()
 
 async function main() {
     const menuPath = path.join(process.cwd(), 'jollibee_kiosk_menu.json')
