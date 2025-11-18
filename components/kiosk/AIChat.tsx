@@ -3,6 +3,45 @@
 import { useState, useRef, useEffect } from 'react'
 import { CartItem, AIChatMessage } from '@/lib/types'
 
+const WELCOME_MESSAGE: AIChatMessage = {
+  role: 'assistant',
+  content: "Kumusta! Hi! I'm your AI ordering assistant. I can help you place orders, answer questions about the menu, or modify your cart. I understand English, Tagalog, and Taglish. What would you like today?",
+}
+
+interface SpeechRecognitionAlternativeLike {
+  transcript: string
+}
+
+interface SpeechRecognitionResultLike {
+  0: SpeechRecognitionAlternativeLike
+  length: number
+}
+
+interface SpeechRecognitionEventLike {
+  results: ArrayLike<SpeechRecognitionResultLike>
+}
+
+interface SpeechRecognitionLike {
+  lang: string
+  interimResults: boolean
+  continuous: boolean
+  onstart: (() => void) | null
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null
+  onerror: (() => void) | null
+  onend: (() => void) | null
+  start: () => void
+  stop: () => void
+}
+
+type SpeechRecognitionCtor = new () => SpeechRecognitionLike
+
+declare global {
+  interface Window {
+    SpeechRecognition?: SpeechRecognitionCtor
+    webkitSpeechRecognition?: SpeechRecognitionCtor
+  }
+}
+
 interface AIChatProps {
   cart: CartItem[]
   onCartUpdate: (cart: CartItem[]) => void
@@ -13,6 +52,10 @@ interface AIChatProps {
 export default function AIChat({ cart, onCartUpdate, onEditItemClick, clearTrigger = 0 }: AIChatProps) {
   const [messages, setMessages] = useState<AIChatMessage[]>([])
   const [isMounted, setIsMounted] = useState(false)
+  const [isListening, setIsListening] = useState(false)
+  const [speechSupported, setSpeechSupported] = useState(false)
+  const [speechError, setSpeechError] = useState<string | null>(null)
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
 
   useEffect(() => {
     setIsMounted(true)
@@ -21,17 +64,10 @@ export default function AIChat({ cart, onCartUpdate, onEditItemClick, clearTrigg
       try {
         setMessages(JSON.parse(saved))
       } catch (e) {
-        // Fallback default message
-        setMessages([{
-          role: 'assistant',
-          content: "Kumusta! Hi! I'm your AI ordering assistant. I can help you place orders, answer questions about the menu, or modify your cart. I understand English, Tagalog, and Taglish. What would you like today?",
-        }])
+        setMessages([WELCOME_MESSAGE])
       }
     } else {
-      setMessages([{
-        role: 'assistant',
-        content: "Kumusta! Hi! I'm your AI ordering assistant. I can help you place orders, answer questions about the menu, or modify your cart. I understand English, Tagalog, and Taglish. What would you like today?",
-      }])
+      setMessages([WELCOME_MESSAGE])
     }
   }, [])
 
@@ -40,11 +76,6 @@ export default function AIChat({ cart, onCartUpdate, onEditItemClick, clearTrigg
       localStorage.setItem('jollibee_ai_chat_history', JSON.stringify(messages))
     }
   }, [messages, isMounted])
-
-  const WELCOME_MESSAGE: AIChatMessage = {
-    role: 'assistant',
-    content: "Kumusta! Hi! I'm your AI ordering assistant. I can help you place orders, answer questions about the menu, or modify your cart. I understand English, Tagalog, and Taglish. What would you like today?",
-  }
 
   useEffect(() => {
     if (clearTrigger === 0) return
@@ -56,6 +87,50 @@ export default function AIChat({ cart, onCartUpdate, onEditItemClick, clearTrigg
   const [loading, setLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  useEffect(() => {
+    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SpeechRecognitionAPI) return
+
+    const recognition = new SpeechRecognitionAPI()
+    recognition.lang = 'en-PH'
+    recognition.interimResults = true
+    recognition.continuous = false
+
+    recognition.onstart = () => {
+      setIsListening(true)
+      setSpeechError(null)
+    }
+
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results)
+        .map((result) => result[0]?.transcript ?? '')
+        .join(' ')
+
+      setInput(transcript.trimStart())
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto'
+        textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
+      }
+    }
+
+    recognition.onerror = () => {
+      setSpeechError('Mic input was interrupted. Please try again.')
+      setIsListening(false)
+    }
+
+    recognition.onend = () => {
+      setIsListening(false)
+    }
+
+    recognitionRef.current = recognition
+    setSpeechSupported(true)
+
+    return () => {
+      recognition.stop()
+      recognitionRef.current = null
+    }
+  }, [])
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -132,6 +207,18 @@ export default function AIChat({ cart, onCartUpdate, onEditItemClick, clearTrigg
       e.preventDefault()
       handleSend()
     }
+  }
+
+  const handleMicToggle = () => {
+    if (!recognitionRef.current || loading) return
+
+    if (isListening) {
+      recognitionRef.current.stop()
+      return
+    }
+
+    setSpeechError(null)
+    recognitionRef.current.start()
   }
 
   return (
@@ -225,11 +312,26 @@ export default function AIChat({ cart, onCartUpdate, onEditItemClick, clearTrigg
               onKeyDown={handleKeyPress}
               placeholder="Tell me what you'd like to eat..."
               rows={1}
-              className="w-full px-6 py-4 bg-gray-50 border-2 border-transparent rounded-[2rem] focus:outline-none focus:border-jollibee-red focus:bg-white transition-all text-lg resize-none custom-scrollbar pr-6 max-h-40"
+              className="w-full px-6 py-4 bg-gray-50 border-2 border-transparent rounded-[2rem] focus:outline-none focus:border-jollibee-red focus:bg-white transition-all text-lg text-gray-900 placeholder:text-gray-400 caret-jollibee-red resize-none custom-scrollbar pr-6 max-h-40"
               style={{ minHeight: '60px' }}
               disabled={loading}
             />
           </div>
+          {speechSupported && (
+            <button
+              type="button"
+              onClick={handleMicToggle}
+              disabled={loading}
+              aria-label={isListening ? 'Stop microphone input' : 'Start microphone input'}
+              className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all shadow-xl active:scale-90 ${
+                isListening
+                  ? 'bg-jollibee-yellow text-red-700 shadow-yellow-100'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              } ${loading ? 'opacity-30 grayscale' : ''}`}
+            >
+              <span className="text-2xl">{isListening ? '◼' : '🎤'}</span>
+            </button>
+          )}
           <button
             onClick={() => handleSend()}
             disabled={loading || !input.trim()}
@@ -237,6 +339,21 @@ export default function AIChat({ cart, onCartUpdate, onEditItemClick, clearTrigg
           >
             <span className="text-2xl font-bold">↑</span>
           </button>
+        </div>
+        <div className="min-h-[1.25rem] mt-3 px-1">
+          {isListening && (
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-jollibee-red">
+              Listening... speak now
+            </p>
+          )}
+          {!isListening && speechError && (
+            <p className="text-xs font-bold text-red-500">{speechError}</p>
+          )}
+          {!isListening && !speechError && speechSupported && (
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400">
+              Tap the mic to speak your order
+            </p>
+          )}
         </div>
         <p className="text-center text-[10px] text-gray-400 uppercase tracking-[0.2em] mt-4 font-black">
           Powered by Jollibee AI • Multilingual Support
@@ -254,4 +371,3 @@ export default function AIChat({ cart, onCartUpdate, onEditItemClick, clearTrigg
     </div>
   )
 }
-
