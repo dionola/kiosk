@@ -1,9 +1,31 @@
 import OpenAI from 'openai'
 import { MenuItem, CartItem, AIChatMessage, AIOrderIntent } from './types'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+let openai: OpenAI | null = null
+
+type FunctionToolCall = OpenAI.Chat.Completions.ChatCompletionMessageToolCall & {
+  type: 'function'
+  function: {
+    name: string
+    arguments: string
+  }
+}
+
+function isFunctionToolCall(
+  toolCall: OpenAI.Chat.Completions.ChatCompletionMessageToolCall
+): toolCall is FunctionToolCall {
+  return toolCall.type === 'function' && 'function' in toolCall
+}
+
+function getOpenAIClient() {
+  if (!openai) {
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    })
+  }
+
+  return openai
+}
 
 const tools: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
@@ -153,7 +175,7 @@ Rules:
   ]
 
   try {
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAIClient().chat.completions.create({
       model: 'gpt-5.4-nano',
       messages,
       temperature: 0.7,
@@ -172,8 +194,9 @@ Rules:
       }
     }
 
-    if (message.tool_calls && message.tool_calls.length > 0) {
-      const toolCall = message.tool_calls[0];
+    const toolCall = message.tool_calls?.find(isFunctionToolCall);
+
+    if (toolCall) {
       const args = JSON.parse(toolCall.function.arguments);
 
       if (toolCall.function.name === 'add_to_cart') {

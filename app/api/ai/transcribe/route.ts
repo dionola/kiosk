@@ -3,9 +3,17 @@ import OpenAI from 'openai'
 
 export const runtime = 'nodejs'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+let openai: OpenAI | null = null
+
+function getOpenAIClient() {
+  if (!openai) {
+    openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    })
+  }
+
+  return openai
+}
 
 const PRIMARY_TRANSCRIPTION_MODEL = process.env.OPENAI_TRANSCRIPTION_MODEL || 'gpt-4o-mini-transcribe'
 const FALLBACK_TRANSCRIPTION_MODEL = process.env.OPENAI_TRANSCRIPTION_FALLBACK_MODEL || 'whisper-1'
@@ -17,7 +25,7 @@ function isModelAccessError(error: unknown) {
 }
 
 async function transcribeWithModel(audio: File, model: string) {
-  return openai.audio.transcriptions.create({
+  return getOpenAIClient().audio.transcriptions.create({
     file: audio,
     model,
     prompt: 'Transcribe a Jollibee kiosk food order. The speaker may use English, Tagalog, or Taglish.',

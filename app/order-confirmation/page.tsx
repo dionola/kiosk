@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 function OrderConfirmationContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const orderId = searchParams.get('id')
+  const orderId = searchParams?.get('id')
   const [order, setOrder] = useState<{ id: string } | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -65,4 +65,3 @@ export default function OrderConfirmationPage() {
     </Suspense>
   )
 }
-

@@ -4,6 +4,15 @@ const nextConfig = {
     images: {
         domains: ['localhost'],
     },
+    serverExternalPackages: ['@prisma/adapter-libsql', '@libsql/client', 'libsql'],
+    webpack: (config) => {
+        config.module.rules.push({
+            test: /(\.md$|\.d\.ts$|LICENSE$)/,
+            type: 'asset/source',
+        })
+
+        return config
+    },
 }
 
 module.exports = nextConfig
