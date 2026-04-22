@@ -8,40 +8,6 @@ const WELCOME_MESSAGE: AIChatMessage = {
   content: "Kumusta! Hi! I'm your AI ordering assistant. I can help you place orders, answer questions about the menu, or modify your cart. I understand English, Tagalog, and Taglish. What would you like today?",
 }
 
-interface SpeechRecognitionAlternativeLike {
-  transcript: string
-}
-
-interface SpeechRecognitionResultLike {
-  0: SpeechRecognitionAlternativeLike
-  length: number
-}
-
-interface SpeechRecognitionEventLike {
-  results: ArrayLike<SpeechRecognitionResultLike>
-}
-
-interface SpeechRecognitionLike {
-  lang: string
-  interimResults: boolean
-  continuous: boolean
-  onstart: (() => void) | null
-  onresult: ((event: SpeechRecognitionEventLike) => void) | null
-  onerror: (() => void) | null
-  onend: (() => void) | null
-  start: () => void
-  stop: () => void
-}
-
-type SpeechRecognitionCtor = new () => SpeechRecognitionLike
-
-declare global {
-  interface Window {
-    SpeechRecognition?: SpeechRecognitionCtor
-    webkitSpeechRecognition?: SpeechRecognitionCtor
-  }
-}
-
 interface AIChatProps {
   cart: CartItem[]
   onCartUpdate: (cart: CartItem[]) => void
@@ -49,13 +15,63 @@ interface AIChatProps {
   clearTrigger?: number
 }
 
+function renderInlineMarkdown(text: string) {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <span key={index}>{part.slice(2, -2)}</span>
+    }
+
+    return part
+  })
+}
+
+function ChatMessageContent({ content }: { content: string }) {
+  const lines = content.split('\n')
+
+  return (
+    <div className="space-y-2 leading-relaxed">
+      {lines.map((line, index) => {
+        const numberedMatch = line.match(/^(\d+)[.)]\s+(.+)$/)
+        const bulletMatch = line.match(/^[-•]\s+(.+)$/)
+
+        if (numberedMatch) {
+          return (
+            <div key={index} className="flex gap-2">
+              <span className="min-w-6">{numberedMatch[1]}.</span>
+              <span>{renderInlineMarkdown(numberedMatch[2])}</span>
+            </div>
+          )
+        }
+
+        if (bulletMatch) {
+          return (
+            <div key={index} className="flex gap-2">
+              <span>•</span>
+              <span>{renderInlineMarkdown(bulletMatch[1])}</span>
+            </div>
+          )
+        }
+
+        if (!line.trim()) {
+          return <div key={index} className="h-1" />
+        }
+
+        return <p key={index}>{renderInlineMarkdown(line)}</p>
+      })}
+    </div>
+  )
+}
+
 export default function AIChat({ cart, onCartUpdate, onEditItemClick, clearTrigger = 0 }: AIChatProps) {
   const [messages, setMessages] = useState<AIChatMessage[]>([])
   const [isMounted, setIsMounted] = useState(false)
-  const [isListening, setIsListening] = useState(false)
-  const [speechSupported, setSpeechSupported] = useState(false)
+  const [isRecording, setIsRecording] = useState(false)
+  const [isTranscribing, setIsTranscribing] = useState(false)
   const [speechError, setSpeechError] = useState<string | null>(null)
-  const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
+  const [mediaRecorderSupported, setMediaRecorderSupported] = useState(false)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const mediaStreamRef = useRef<MediaStream | null>(null)
+  const audioChunksRef = useRef<Blob[]>([])
 
   useEffect(() => {
     setIsMounted(true)
@@ -89,46 +105,11 @@ export default function AIChat({ cart, onCartUpdate, onEditItemClick, clearTrigg
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   useEffect(() => {
-    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SpeechRecognitionAPI) return
-
-    const recognition = new SpeechRecognitionAPI()
-    recognition.lang = 'en-PH'
-    recognition.interimResults = true
-    recognition.continuous = false
-
-    recognition.onstart = () => {
-      setIsListening(true)
-      setSpeechError(null)
-    }
-
-    recognition.onresult = (event) => {
-      const transcript = Array.from(event.results)
-        .map((result) => result[0]?.transcript ?? '')
-        .join(' ')
-
-      setInput(transcript.trimStart())
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto'
-        textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
-      }
-    }
-
-    recognition.onerror = () => {
-      setSpeechError('Mic input was interrupted. Please try again.')
-      setIsListening(false)
-    }
-
-    recognition.onend = () => {
-      setIsListening(false)
-    }
-
-    recognitionRef.current = recognition
-    setSpeechSupported(true)
+    setMediaRecorderSupported(typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia && typeof MediaRecorder !== 'undefined')
 
     return () => {
-      recognition.stop()
-      recognitionRef.current = null
+      mediaRecorderRef.current?.stop()
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop())
     }
   }, [])
 
@@ -209,16 +190,95 @@ export default function AIChat({ cart, onCartUpdate, onEditItemClick, clearTrigg
     }
   }
 
-  const handleMicToggle = () => {
-    if (!recognitionRef.current || loading) return
+  const transcribeAudio = async (audioBlob: Blob) => {
+    if (audioBlob.size === 0) return
 
-    if (isListening) {
-      recognitionRef.current.stop()
-      return
-    }
-
+    setIsTranscribing(true)
     setSpeechError(null)
-    recognitionRef.current.start()
+
+    try {
+      const formData = new FormData()
+      formData.append('audio', audioBlob, 'voice-order.webm')
+
+      const response = await fetch('/api/ai/transcribe', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to transcribe audio')
+      }
+
+      const transcript = String(data.text || '').trim()
+      if (!transcript) {
+        setSpeechError("I couldn't hear an order. Please try again.")
+        return
+      }
+
+      setInput(transcript)
+      await handleSend(transcript)
+    } catch (error) {
+      console.error('Failed to transcribe audio:', error)
+      setSpeechError('Voice input failed. Please try again or type your order.')
+    } finally {
+      setIsTranscribing(false)
+    }
+  }
+
+  const startRecording = async () => {
+    if (!mediaRecorderSupported || loading || isTranscribing) return
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : 'audio/webm'
+
+      audioChunksRef.current = []
+      mediaStreamRef.current = stream
+
+      const recorder = new MediaRecorder(stream, { mimeType })
+      mediaRecorderRef.current = recorder
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data)
+        }
+      }
+
+      recorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType })
+        stream.getTracks().forEach((track) => track.stop())
+        mediaStreamRef.current = null
+        mediaRecorderRef.current = null
+        void transcribeAudio(audioBlob)
+      }
+
+      recorder.start()
+      setIsRecording(true)
+      setSpeechError(null)
+    } catch (error) {
+      console.error('Failed to start recording:', error)
+      setSpeechError('Microphone access was blocked. Please allow mic access and try again.')
+      setIsRecording(false)
+    }
+  }
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop()
+    }
+    setIsRecording(false)
+  }
+
+  const handleMicToggle = () => {
+    if (isRecording) {
+      stopRecording()
+    } else {
+      void startRecording()
+    }
   }
 
   return (
@@ -240,7 +300,7 @@ export default function AIChat({ cart, onCartUpdate, onEditItemClick, clearTrigg
                 : 'bg-gray-50 text-gray-800 rounded-tl-none border border-gray-100'
                 }`}
             >
-              <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>
+              <ChatMessageContent content={message.content} />
 
               {message.addedItems && message.addedItems.length > 0 && (
                 <div className="mt-4 flex flex-wrap gap-3">
@@ -310,48 +370,53 @@ export default function AIChat({ cart, onCartUpdate, onEditItemClick, clearTrigg
               value={input}
               onChange={handleInput}
               onKeyDown={handleKeyPress}
-              placeholder="Tell me what you'd like to eat..."
+              placeholder="Message"
               rows={1}
-              className="w-full px-6 py-4 bg-gray-50 border-2 border-transparent rounded-[2rem] focus:outline-none focus:border-jollibee-red focus:bg-white transition-all text-lg text-gray-900 placeholder:text-gray-400 caret-jollibee-red resize-none custom-scrollbar pr-6 max-h-40"
+              className="w-full px-6 py-4 bg-gray-50 border-2 border-transparent rounded-[2rem] focus:outline-none focus:border-jollibee-red focus:bg-white transition-all text-lg text-gray-900 placeholder:text-gray-400 caret-jollibee-red resize-none no-scrollbar pr-6 max-h-40"
               style={{ minHeight: '60px' }}
               disabled={loading}
             />
           </div>
-          {speechSupported && (
+          {mediaRecorderSupported && (
             <button
               type="button"
               onClick={handleMicToggle}
-              disabled={loading}
-              aria-label={isListening ? 'Stop microphone input' : 'Start microphone input'}
-              className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all shadow-xl active:scale-90 ${
-                isListening
+              disabled={loading || isTranscribing}
+              aria-label={isRecording ? 'Stop recording voice order' : 'Start recording voice order'}
+              className={`w-[60px] h-[60px] rounded-[2rem] flex items-center justify-center transition-all shadow-xl active:scale-90 ${
+                isRecording
                   ? 'bg-jollibee-yellow text-red-700 shadow-yellow-100'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              } ${loading ? 'opacity-30 grayscale' : ''}`}
+              } ${loading || isTranscribing ? 'opacity-30 grayscale' : ''}`}
             >
-              <span className="text-2xl">{isListening ? '◼' : '🎤'}</span>
+              <span className="text-2xl">{isRecording ? '◼' : '🎤'}</span>
             </button>
           )}
           <button
             onClick={() => handleSend()}
             disabled={loading || !input.trim()}
-            className="w-14 h-14 bg-jollibee-red text-white rounded-2xl flex items-center justify-center hover:bg-red-700 disabled:opacity-30 disabled:grayscale transition-all shadow-xl shadow-red-100 active:scale-90"
+            className="w-[60px] h-[60px] bg-jollibee-red text-white rounded-[2rem] flex items-center justify-center hover:bg-red-700 disabled:opacity-30 disabled:grayscale transition-all shadow-xl shadow-red-100 active:scale-90"
           >
             <span className="text-2xl font-bold">↑</span>
           </button>
         </div>
         <div className="min-h-[1.25rem] mt-3 px-1">
-          {isListening && (
+          {isRecording && (
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-jollibee-red">
-              Listening... speak now
+              Recording... tap stop when you are done
             </p>
           )}
-          {!isListening && speechError && (
+          {!isRecording && isTranscribing && (
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-jollibee-red">
+              Transcribing your order...
+            </p>
+          )}
+          {!isRecording && !isTranscribing && speechError && (
             <p className="text-xs font-bold text-red-500">{speechError}</p>
           )}
-          {!isListening && !speechError && speechSupported && (
+          {!isRecording && !isTranscribing && !speechError && mediaRecorderSupported && (
             <p className="text-xs font-bold uppercase tracking-[0.12em] text-gray-400">
-              Tap the mic to speak your order
+              Tap the mic, speak your order, then tap stop
             </p>
           )}
         </div>
