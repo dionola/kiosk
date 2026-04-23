@@ -1,6 +1,7 @@
 'use client'
 
 import { CartItem } from '@/lib/types'
+import LoadingImage from '@/components/ui/LoadingImage'
 
 interface CartProps {
   items: CartItem[]
@@ -61,9 +62,14 @@ export default function Cart({
               onClick={() => onEditItem(index)}
               className="group flex gap-4 p-4 bg-white border border-gray-100 rounded-[2rem] shadow-sm hover:shadow-xl hover:shadow-red-500/10 transition-all border-l-[12px] border-l-jollibee-red cursor-pointer"
             >
-              <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl overflow-hidden flex-shrink-0 bg-gray-50 border border-gray-100 rotate-[-2deg] group-hover:rotate-0 transition-transform">
+              <div className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-2xl overflow-hidden flex-shrink-0 bg-gray-50 border border-gray-100 rotate-[-2deg] group-hover:rotate-0 transition-transform">
                 {item.image ? (
-                  <img src={item.image} alt={item.name} className="w-full h-full object-cover scale-110" />
+                  <LoadingImage
+                    src={item.image}
+                    alt={item.name}
+                    className="w-full h-full object-cover scale-110"
+                    fallback={<span className="text-3xl">🍗</span>}
+                  />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-3xl">🍗</div>
                 )}

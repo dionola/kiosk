@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { CartItem } from '@/lib/types'
+import LoadingImage from '@/components/ui/LoadingImage'
 
 export default function CheckoutPage() {
   const router = useRouter()
@@ -100,9 +101,14 @@ export default function CheckoutPage() {
               <div className="space-y-4 mb-6">
                 {cart.map((item, index) => (
                   <div key={index} className="flex gap-4 border-b pb-4">
-                    <div className="w-16 h-16 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
+                    <div className="relative w-16 h-16 rounded-md overflow-hidden bg-gray-100 flex-shrink-0">
                       {item.image ? (
-                        <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                        <LoadingImage
+                          src={item.image}
+                          alt={item.name}
+                          className="w-full h-full object-cover"
+                          fallback={<span className="text-2xl">🍗</span>}
+                        />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-2xl">🍗</div>
                       )}

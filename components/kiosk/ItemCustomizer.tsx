@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react'
 import { MenuItem, MenuItemCustomization, CustomizationItem, CartItem } from '@/lib/types'
+import LoadingImage from '@/components/ui/LoadingImage'
 
 interface ItemCustomizerProps {
     item: MenuItem
@@ -158,11 +159,12 @@ export default function ItemCustomizer({
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
                     <div className="flex flex-col md:flex-row gap-6 mb-8">
                         {item.image && (
-                            <div className="w-full md:w-1/2 aspect-square rounded-2xl overflow-hidden shadow-md">
-                                <img
+                            <div className="relative w-full md:w-1/2 aspect-square rounded-2xl overflow-hidden shadow-md">
+                                <LoadingImage
                                     src={item.image}
                                     alt={item.name}
                                     className="w-full h-full object-cover"
+                                    fallback={<span className="text-5xl">🍗</span>}
                                 />
                             </div>
                         )}

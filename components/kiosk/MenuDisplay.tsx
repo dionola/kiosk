@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { Category, MenuItem, CartItem } from '@/lib/types'
 import ItemCustomizer from './ItemCustomizer'
+import LoadingImage from '@/components/ui/LoadingImage'
 
 interface MenuDisplayProps {
     onAddToCart: (item: CartItem) => void
@@ -13,6 +14,7 @@ export default function MenuDisplay({ onAddToCart }: MenuDisplayProps) {
     const [categories, setCategories] = useState<Category[]>([])
     const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
+    const [loadingProgress, setLoadingProgress] = useState(0)
     const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null)
 
     const itemsContainerRef = useRef<HTMLDivElement>(null)
@@ -29,14 +31,23 @@ export default function MenuDisplay({ onAddToCart }: MenuDisplayProps) {
 
     const loadMenuData = async () => {
         try {
-            const [catRes, itemRes] = await Promise.all([
-                fetch('/api/categories'),
-                fetch('/api/menu')
-            ])
+            setLoadingProgress(10)
+
+            const categoriesPromise = fetch('/api/categories')
+            const menuPromise = fetch('/api/menu')
+
+            const catRes = await categoriesPromise
+            setLoadingProgress(35)
+
+            const itemRes = await menuPromise
+            setLoadingProgress(60)
 
             if (catRes.ok && itemRes.ok) {
                 const cats = await catRes.json()
+                setLoadingProgress(78)
+
                 const items = await itemRes.json()
+                setLoadingProgress(92)
 
                 setCategories(cats)
                 setMenuItems(items)
@@ -44,6 +55,8 @@ export default function MenuDisplay({ onAddToCart }: MenuDisplayProps) {
                 if (cats.length > 0) {
                     setSelectedCategoryId(cats[0].id)
                 }
+
+                setLoadingProgress(100)
             }
         } catch (error) {
             console.error('Failed to load menu data:', error)
@@ -64,8 +77,35 @@ export default function MenuDisplay({ onAddToCart }: MenuDisplayProps) {
 
     if (loading) {
         return (
-            <div className="w-full h-full flex items-center justify-center">
-                <p className="text-xl">Loading menu...</p>
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-white via-red-50 to-yellow-50 px-6">
+                <div className="w-full max-w-xl rounded-[2rem] border border-red-100 bg-white/90 p-8 shadow-xl">
+                    <div className="flex items-center justify-between gap-4">
+                        <div>
+                            <p className="text-sm font-black uppercase tracking-[0.24em] text-jollibee-red">
+                                Preparing Menu
+                            </p>
+                            <h2 className="mt-2 text-3xl font-black text-red-800">
+                                Loading Jollibee favorites...
+                            </h2>
+                        </div>
+                        <div className="shrink-0 rounded-full bg-red-50 px-4 py-2 text-2xl font-black text-jollibee-red">
+                            {loadingProgress}%
+                        </div>
+                    </div>
+
+                    <div className="mt-6 h-5 overflow-hidden rounded-full bg-red-100">
+                        <div
+                            className="h-full rounded-full bg-gradient-to-r from-jollibee-red via-red-500 to-jollibee-yellow transition-all duration-500"
+                            style={{ width: `${loadingProgress}%` }}
+                        />
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between text-xs font-bold uppercase tracking-[0.2em] text-gray-400">
+                        <span>Categories</span>
+                        <span>Menu Items</span>
+                        <span>Ready</span>
+                    </div>
+                </div>
             </div>
         )
     }
@@ -90,10 +130,11 @@ export default function MenuDisplay({ onAddToCart }: MenuDisplayProps) {
                                 >
                                     <div className="relative aspect-square bg-gradient-to-br from-red-100 to-yellow-100">
                                         {category.image ? (
-                                            <img
+                                            <LoadingImage
                                                 src={category.image}
                                                 alt={category.name}
                                                 className="w-full h-full object-cover"
+                                                fallback={<span className="text-4xl">🍽️</span>}
                                             />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center text-4xl">
@@ -139,10 +180,11 @@ export default function MenuDisplay({ onAddToCart }: MenuDisplayProps) {
                                 >
                                     <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-red-50 to-yellow-50">
                                         {item.image ? (
-                                            <img
+                                            <LoadingImage
                                                 src={item.image}
                                                 alt={item.name}
                                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                                fallback={<span className="text-4xl">🍗</span>}
                                             />
                                         ) : (
                                             <div className="w-full h-full flex items-center justify-center">
