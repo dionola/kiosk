@@ -5,8 +5,11 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-    title: 'Jollibee Ordering Kiosk',
+    title: 'JolliKiosk',
     description: 'Order your favorite Jollibee meals with AI assistance',
+    icons: {
+        icon: '/icon.png',
+    },
 }
 
 export default function RootLayout({
