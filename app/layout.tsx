@@ -5,11 +5,24 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-    title: 'JolliKiosk',
-    description: 'Order your favorite Jollibee meals with AI assistance',
-    icons: {
-        icon: '/icon.png',
-    },
+title: "Kiosk",
+description: "AI-enabled food ordering kiosk.",
+metadataBase: new URL("https://kiosk.dionola.com"),
+openGraph: {
+  title: "Kiosk",
+  description: "AI-enabled food ordering kiosk.",
+  url: "https://kiosk.dionola.com",
+  siteName: "Kiosk",
+  images: [{ url: "https://ejyic7eskr7jje45.public.blob.vercel-storage.com/jollibee-thumbnail.png", width: 1200,
+height: 630 }],
+  type: "website",
+},
+twitter: {
+  card: "summary_large_image",
+  title: "Kiosk",
+  description: "AI-enabled food ordering kiosk.",
+  images: ["https://ejyic7eskr7jje45.public.blob.vercel-storage.com/jollibee-thumbnail.png"],
+},
 }
 
 export default function RootLayout({
