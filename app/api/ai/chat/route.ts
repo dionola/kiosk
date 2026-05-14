@@ -3,6 +3,8 @@ import { processAIOrder } from '@/lib/openai'
 import { prisma } from '@/lib/db'
 import { CartItem, AIChatMessage } from '@/lib/types'
 import { applyIntentToCart } from '@/lib/ai-cart'
+import { aiChatRequestSchema } from '@/lib/schemas'
+import { ZodError } from 'zod'
 
 type MenuCustomization = {
   group: string
@@ -14,14 +16,7 @@ type MenuCustomization = {
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, chatHistory, cart } = await request.json()
-
-    if (!message) {
-      return NextResponse.json(
-        { error: 'Message is required' },
-        { status: 400 }
-      )
-    }
+    const { message, chatHistory, cart } = aiChatRequestSchema.parse(await request.json())
 
     // Fetch menu items
     const menuItems = await prisma.menuItem.findMany({
@@ -54,13 +49,13 @@ export async function POST(request: NextRequest) {
     }).join('\n')
     const { response, intent } = await processAIOrder(
       message,
-      cart || [],
-      (chatHistory || []) as AIChatMessage[],
+      cart,
+      chatHistory as AIChatMessage[],
       menuString
     )
 
     const { cartUpdate, addedItems } = applyIntentToCart(
-      cart || [],
+      cart,
       intent,
       menuItems
     )
@@ -93,6 +88,13 @@ export async function POST(request: NextRequest) {
       addedItems: addedItems.length > 0 ? addedItems : undefined
     })
   } catch (error) {
+    if (error instanceof ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid chat payload' },
+        { status: 400 }
+      )
+    }
+
     console.error('Error processing AI chat:', error)
     return NextResponse.json(
       {

@@ -78,10 +78,10 @@ export interface AIOrderIntent {
     action: 'add' | 'remove' | 'modify' | 'clear' | 'query'
     items?: {
         menuItemId?: string
-        name: string
+        name?: string
         quantity: number
         customizations?: {
-            [key: string]: string | number
+            [key: string]: string | number | boolean
         }
     }[]
     query?: string

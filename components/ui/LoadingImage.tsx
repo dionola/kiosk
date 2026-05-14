@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { useEffect, useState } from 'react'
 
 interface LoadingImageProps {
@@ -41,9 +42,12 @@ export default function LoadingImage({
           className={`absolute inset-0 animate-pulse bg-gradient-to-br from-red-100 via-white to-yellow-100 ${skeletonClassName}`}
         />
       )}
-      <img
+      <Image
         src={src}
         alt={alt}
+        fill
+        sizes="(max-width: 768px) 50vw, 20vw"
+        unoptimized
         className={`${className} transition-opacity duration-300 ${isLoaded ? 'opacity-100' : 'opacity-0'}`}
         onLoad={() => setIsLoaded(true)}
         onError={() => setHasError(true)}

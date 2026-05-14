@@ -1,5 +1,6 @@
 import OpenAI from 'openai'
 import { MenuItem, CartItem, AIChatMessage, AIOrderIntent } from './types'
+import { aiToolArgsSchema } from './schemas'
 
 let openai: OpenAI | null = null
 
@@ -197,7 +198,7 @@ Rules:
     const toolCall = message.tool_calls?.find(isFunctionToolCall);
 
     if (toolCall) {
-      const args = JSON.parse(toolCall.function.arguments);
+      const args = aiToolArgsSchema.parse(JSON.parse(toolCall.function.arguments));
 
       if (toolCall.function.name === 'add_to_cart') {
         intent = { action: 'add', items: args.items };

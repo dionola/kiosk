@@ -2,17 +2,18 @@
 const nextConfig = {
     outputFileTracingRoot: __dirname,
     images: {
-        domains: ['localhost'],
+        remotePatterns: [
+            {
+                protocol: 'https',
+                hostname: '**',
+            },
+            {
+                protocol: 'http',
+                hostname: 'localhost',
+            },
+        ],
     },
     serverExternalPackages: ['@prisma/adapter-libsql', '@libsql/client', 'libsql'],
-    webpack: (config) => {
-        config.module.rules.push({
-            test: /(\.md$|\.d\.ts$|LICENSE$)/,
-            type: 'asset/source',
-        })
-
-        return config
-    },
 }
 
 module.exports = nextConfig

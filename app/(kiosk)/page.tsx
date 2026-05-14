@@ -41,7 +41,7 @@ export default function KioskPage() {
     // Generate or retrieve session ID
     let session = localStorage.getItem('kiosk_session_id')
     if (!session) {
-      session = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      session = `session_${crypto.randomUUID()}`
       localStorage.setItem('kiosk_session_id', session)
     }
     setSessionId(session)
