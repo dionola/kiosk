@@ -1,0 +1,24 @@
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - corepack enable
+        - corepack prepare pnpm@10.27.0 --activate
+        - pnpm install --frozen-lockfile
+    build:
+      commands:
+        - export DATABASE_URL=$(aws ssm get-parameter --name /dionola/prod/jollibee/DATABASE_URL --with-decryption --query Parameter.Value --output text --region ap-southeast-1)
+        - export TURSO_AUTH_TOKEN=$(aws ssm get-parameter --name /dionola/prod/jollibee/TURSO_AUTH_TOKEN --with-decryption --query Parameter.Value --output text --region ap-southeast-1)
+        - export OPENAI_API_KEY=$(aws ssm get-parameter --name /dionola/prod/jollibee/OPENAI_API_KEY --with-decryption --query Parameter.Value --output text --region ap-southeast-1)
+        - pnpm run lint
+        - pnpm run test
+        - pnpm run build
+  artifacts:
+    baseDirectory: .next
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - .next/cache/**/*
+      - node_modules/**/*
